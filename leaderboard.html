@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한일픽 : 리더보드</title>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="matches.css">
+    <link rel="stylesheet" href="features.css">
+    <link rel="stylesheet" href="modal.css">
+    <link rel="stylesheet" href="predictions.css">
+    <link rel="icon" href="https://i.imgur.com/Lu3D6Qb.png"/>
+    
+<!-- Firebase SDK CDN -->
+<script type="module">
+  import {
+    initializeApp
+  } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+  
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged, updateProfile, sendEmailVerification,
+    sendPasswordResetEmail 
+  } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+  import {
+    getFirestore,
+    doc, setDoc, getDoc, onSnapshot,
+    collection, query, where, getDocs
+  } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+  import {
+    getStorage, ref, uploadBytes, getDownloadURL, deleteObject
+  } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+
+  window.firebase = {
+    initializeApp,
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    sendEmailVerification,
+    sendPasswordResetEmail,
+    updateProfile,
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    onSnapshot,
+    getStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL,
+    deleteObject
+  };
+</script>
+
+</head>
+<body>
+<header class="navbar">
+  <a href="index.html" class="logo">
+    <img src="https://i.imgur.com/2cOnCSN.png" alt="HSP 로고" class="logo-img">
+  </a>
+  <div class="navbar-center">
+    <input type="text" class="search-bar" placeholder="경기 검색" autocomplete="off" name="search">
+    <div id="profile-box"></div>
+  </div>
+</header>
+
+<nav class="sports-navbar">
+    <a class="sports-link active" href="index.html">
+        <span class="sports-icon">⚽</span>
+        Football
+    </a>
+    <a class="sports-link" href="#" id="moreLink">
+        <span class="sports-icon">⋯</span>
+        More
+    </a>
+</nav>
+
+<div id="moreModal" class="modal">
+    <div class="modal-content">
+        <span class="close" id="closeMoreModal">&times;</span>
+        <p>더 많은 종목을 추가할 예정입니다</p>
+    </div>
+</div>
+
+<div class="sidebar_1">
+    <a href="schedule.html"><h3>경기일정</h3></a>
+</div>
+
+<div class="sidebar_2">
+    <a href="stats.html"><h3>주요스탯</h3></a>
+</div>
+
+<div class="sidebar_3">
+    <a href="leaderboard.html"><h3>리더보드</h3></a>
+</div>
+
+<div class="sidebar_4">
+    <a href="notice.html"><h3>공지사항</h3></a>
+</div>
+
+<div class="sidebar_5">
+    <a href="https://www.hanilians.xyz/"><h3>한일리안</h3></a>
+</div>
+
+<div class="sidebar_6">
+    <a href="https://cafe.naver.com/browns28nd"><h3>네이버카페</h3></a>
+</div>
+
+<div class="sidebar_7">
+    <a href="https://docs.google.com/spreadsheets/d/1R76vC2ENUroEGxSKp9Sx7zwIBLK0iId21OMkAElJoX0/edit?gid=0#gid=0"><h3>운동장 예약</h3></a>
+</div>
+
+<div class="sidebar_8">
+    <a href="standing_table.html"><h3>순위/대진표</h3></a>
+</div>
+
+<main>
+    <section class="main">
+        <div class="leaderboard-section">
+            <div class="leaderboard-header">
+                <h2>🏆 리더보드</h2>
+            </div>
+            
+            <!-- 로딩 상태 -->
+            <div id="leaderboard-loading" class="loading-container">
+                <div class="loading-spinner"></div>
+                <p>리더보드를 불러오는 중...</p>
+            </div>
+            
+            <!-- 리더보드 테이블 -->
+            <div id="leaderboard-container" class="leaderboard-container" style="display: none;">
+                <div class="leaderboard-table-wrapper">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th class="rank-col">순위</th>
+                                <th class="profile-col">프로필</th>
+                                <th class="nickname-col">닉네임</th>
+                                <th class="participation-col">참여횟수</th>
+                                <th class="accuracy-col">정확도</th>
+                                <th class="points-col">포인트</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <!-- 리더보드 데이터가 여기에 동적으로 추가됩니다 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 페이지네이션 -->
+                <div class="pagination-container">
+                    <button id="prevLeaderboardBtn" class="pagination-btn" disabled>이전</button>
+                    <span id="leaderboard-page-info" class="page-info">1 / 1</span>
+                    <button id="nextLeaderboardBtn" class="pagination-btn" disabled>다음</button>
+                </div>
+            </div>
+            
+            <!-- 에러 상태 -->
+            <div id="leaderboard-error" class="error-container" style="display: none;">
+                <p>리더보드를 불러오는 중 오류가 발생했습니다.</p>
+                <button id="retry-leaderboard" class="retry-btn">다시 시도</button>
+            </div>
+            
+            <!-- 빈 상태 -->
+            <div id="leaderboard-empty" class="empty-container" style="display: none;">
+                <p>아직 참여자가 없습니다.</p>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="custom-footer">
+    <a class="footer-link" href="footer.html">개인정보 처리방침</a>
+</footer>
+
+    <!-- 로그인 모달 -->
+    <div id="loginModal" class="auth-modal" style="display: none;">
+       <div class="auth-modal-content">
+         <span class="auth-modal-close" id="closeLoginModal">&times;</span>
+         <h2 style="margin-bottom: 24px;">로그인</h2>
+         <div class="auth-form">
+           <input id="loginEmail" type="email" placeholder="아이디(이메일)" autocomplete="username" name="email" />
+           <input id="loginPassword" type="password" placeholder="비밀번호" autocomplete="current-password" name="password" />
+           <button id="doLogin" class="auth-btn login-btn" style="width: 100%; margin: 12px 0;">로그인</button>
+         </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+          <a href="#" id="openSignupLink" style="color: #2051ff; font-size: 15px; text-decoration: underline;">가입하기</a>
+          <a href="#" id="openPasswordResetLink" style="color: #2051ff; font-size: 15px;">비밀번호를 잊어버리셨나요?</a>
+        </div>
+       </div>
+    </div>
+
+    <!-- 회원가입 모달 -->
+    <div id="signupModal" class="auth-modal" style="display: none;">
+       <div class="auth-modal-content">
+         <span class="auth-modal-close" id="closeSignupModal">&times;</span>
+         <h2 style="margin-bottom: 24px;">회원가입</h2>
+         <div class="auth-form">
+           <input id="signupEmail" type="email" placeholder="이메일 (@hanilgo.cnehs.kr)" name="email" />
+           <input id="signupPassword" type="password" placeholder="비밀번호 (6자 이상)" name="password" />
+           <button id="openProfileModalBtn" class="auth-btn signup-btn" style="width: 100%; margin: 12px 0;">다음</button>
+         </div>
+         <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+           <a href="#" id="backToLoginLink" style="color: #2051ff; font-size: 15px; text-decoration: underline;">로그인으로 돌아가기</a>
+         </div>
+       </div>
+    </div>
+
+    <!-- 프로필 모달 (회원가입 완료용) -->
+<div id="profileModal" class="auth-modal" style="display: none;">
+    <div class="auth-modal-content">
+        <span class="auth-modal-close" id="closeProfileModal">&times;</span>
+        <h2 style="margin-bottom: 24px;">프로필 설정</h2>
+        <div class="auth-form">
+            <p style="color: #666; margin-bottom: 16px; font-size: 14px;">
+                닉네임을 설정해주세요. (2-20자)
+            </p>
+            <input id="nickname" type="text" placeholder="닉네임 입력" maxlength="20" />
+            
+            <!-- 버튼들 -->
+            <div class="modal-buttons" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="signupSaveProfileBtn" class="auth-btn" style="flex: 1;">저장하고 가입</button>
+                <button id="checkVerificationBtn" class="auth-btn" style="flex: 1; display: none;">이메일 인증 확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- 비밀번호 재설정 모달 -->
+    <div id="passwordResetModal" class="auth-modal" style="display: none;">
+      <div class="auth-modal-content">
+        <span class="auth-modal-close" id="closePasswordResetModal">&times;</span>
+        <h2 style="margin-bottom: 24px;">비밀번호 재설정</h2>
+        <div class="auth-form" id="passwordResetForm">
+          <p style="color: #666; margin-bottom: 16px; font-size: 14px;">
+            가입할 때 사용한 이메일 주소를 입력하면 비밀번호 재설정 링크를 보내드립니다.
+          </p>
+          <input id="resetEmail" type="email" placeholder="이메일 주소 입력" name="resetEmail" />
+          <button id="sendResetEmailBtn" class="auth-btn" style="width: 100%; margin: 12px 0;">
+            비밀번호 재설정 이메일 보내기
+          </button>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+          <a href="#" id="backToLoginFromReset" style="color: #2051ff; font-size: 15px; text-decoration: underline;">로그인으로 돌아가기</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 프로필 편집 모달 -->
+    <div id="profileEditModal" class="profile-edit-modal" style="display: none;">
+        <div class="profile-edit-modal-content">
+            <span class="profile-edit-modal-close" id="closeProfileEditModal">&times;</span>
+            <h2>프로필 편집</h2>
+            
+            <!-- 현재 프로필 정보 표시 -->
+            <div class="current-profile-info">
+                <div class="profile-image-container">
+                    <img id="currentProfileImage" src="" alt="현재 프로필 이미지">
+                    <div class="image-overlay">
+                        <button id="changeImageBtn" class="change-image-btn">사진 변경</button>
+                    </div>
+                    <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                </div>
+                <div class="current-nickname" id="currentNickname"></div>
+                <div class="current-email" id="currentEmail"></div>
+            </div>
+            
+            <!-- 편집 폼 -->
+            <div class="edit-form">
+                <label for="newNickname">새 닉네임</label>
+                <input 
+                    id="newNickname" 
+                    type="text" 
+                    placeholder="새 닉네임 입력 (2-20자)" 
+                    maxlength="20"
+                />
+                
+                <!-- 이미지 미리보기 -->
+                <div id="imagePreviewContainer" style="display: none;">
+                    <label>새 프로필 사진 미리보기:</label>
+                    <img id="imagePreview" src="" alt="미리보기" class="image-preview">
+                    <button id="cancelImageBtn" class="cancel-image-btn">이미지 취소</button>
+                </div>
+                
+                <div class="edit-buttons">
+                    <button id="saveProfileBtn" class="edit-btn save-btn">저장</button>
+                    <button id="cancelEditBtn" class="edit-btn cancel-btn">취소</button>
+                </div>
+                
+                <!-- 업로드 진행 표시 -->
+                <div id="uploadProgress" class="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <span class="progress-text">업로드 중...</span>
+                </div>
+                
+                <div id="editSuccessMessage" class="success-message" style="display: none;">
+                    프로필이 성공적으로 변경되었습니다!
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script type="module" src="auth.js"></script>
+<script src="script.js"></script>
+<script src="predictions.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,350 @@
+/* ============== 6. 경기 목록 스타일 ============== */
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.match {
+  background-color: #2a2a2a;
+  border-radius: 10px;
+  padding: 15px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.match:hover {
+  background-color: #333;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.match-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.match-date {
+  font-size: 14px;
+  color: #999;
+}
+
+.match-teams {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.team {
+  font-weight: bold;
+  flex: 1;
+}
+
+.home {
+  text-align: right;
+  padding-right: 15px;
+}
+
+.away {
+  text-align: left;
+  padding-left: 15px;
+}
+
+.score {
+  font-size: 18px;
+  font-weight: bold;
+  color: #00bfff;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ============== 10. 경기 상세 정보 패널 ============== */
+.match-details-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background-color: #1e1e1e;
+  border-radius: 15px;
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 1001;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.match-details-panel.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #333;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.close-panel {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-panel:hover {
+  color: white;
+}
+
+.panel-content {
+  padding: 20px;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============== 11. 경기 상세 정보 스타일 ============== */
+.match-detail-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.match-date, .match-league {
+  color: #999;
+  font-size: 14px;
+}
+
+.match-score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.team-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 150px;
+}
+
+.team-logo {
+  width: 60px;
+  height: 60px;
+  background-color: #333;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.team-logo img {
+  border-radius: 50%;
+}
+
+.team-name {
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.score-display {
+  font-size: 36px;
+  font-weight: bold;
+  color: #00bfff;
+}
+
+/* ============== 12. 통계 스타일 ============== */
+.match-stats {
+  margin: 30px 0;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  width: 40px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.stat-bar {
+  flex: 1;
+  height: 12px;
+  margin: 0 15px;
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.home-stat {
+  background-color: #00bfff;
+  height: 100%;
+}
+
+.away-stat {
+  background-color: #ff4500;
+  height: 100%;
+}
+
+.stat-label {
+  text-align: center;
+  color: #999;
+  margin-bottom: 15px;
+}
+
+/* ============== 13. 탭 스타일 ============== */
+.tab-container {
+  margin-top: 30px;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #333;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  border-bottom-color: #00bfff;
+  color: #00bfff;
+}
+
+.tab-content {
+  margin-top: 20px;
+}
+
+/* ============== 14. 이벤트 타임라인 스타일 ============== */
+.event {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
+}
+
+.event-time {
+  width: 30px;
+  font-weight: bold;
+  color: #999;
+}
+
+.event-icon {
+  font-size: 20px;
+  margin: 0 15px;
+}
+
+.event-info {
+  flex: 1;
+}
+
+.player-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.event-detail {
+  color: #999;
+  font-size: 14px;
+}
+
+/* ============== 16. 라인업 스타일 ============== */
+.lineups-container {
+  margin-top: 20px;
+}
+
+.lineups-teams {
+  display: flex;
+  gap: 20px;
+}
+
+.lineup-team {
+  flex: 1;
+  background-color: #222;
+  border-radius: 10px;
+  padding: 15px;
+}
+
+.lineup-team h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #444;
+}
+
+.field-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.position-group {
+  display: flex;
+  gap: 10px;
+}
+
+.position-label {
+  font-weight: bold;
+  color: #999;
+  width: 30px;
+  text-align: center;
+  padding-top: 10px;
+}
+
+.players-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player {
+  background-color: #333;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+}
