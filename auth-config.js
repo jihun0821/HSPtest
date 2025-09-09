@@ -25,7 +25,7 @@ const ERROR_MESSAGES = {
   EMAIL_VERIFICATION_REQUIRED: '이메일 인증이 완료되지 않았습니다. 메일함을 확인해주세요.',
   TEMP_DATA_MISSING: '임시 사용자 데이터가 없습니다.',
   PROFILE_IMAGE_NOT_SUPPORTED: '현재 버전에서는 프로필 이미지 업로드가 지원되지 않습니다.',
-  UNKNOWN_ERROR: '알 수 없는 오류가 발생했습니다.',
+  UNKNOWN_ERROR: '비밀번호가 잘못되었습니다.',
   EMAIL_NOT_VERIFIED_YET: '이메일 인증이 아직 완료되지 않았습니다.\n메일함에서 인증 링크를 클릭한 후 다시 시도해주세요.'
 };
 
