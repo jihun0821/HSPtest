@@ -65,6 +65,336 @@ class AuthManager {
   setupAuthStateListener() {
     const firebase = this.firebaseManager.getFirebase();
     const auth = this.firebaseManager.getAuth();
+    
+    if (!firebase || !auth) {
+      console.error('Firebase가 초기화되지 않음');
+      return;
+    }
+
+    firebase.onAuthStateChanged(auth, async (user) => {
+      console.log('Auth 상태 변경:', user ? user.email : 'null');
+
+      if (user) {
+        try {
+          // 사용자 정보 새로고침
+          await user.reload();
+          const refreshedUser = auth.currentUser;
+
+          // 이메일 인증 확인
+          if (!refreshedUser.emailVerified) {
+            console.log('이메일 미인증 상태 감지');
+            
+            // ✅ 이메일 인증 대기 상태인 경우: UI만 로그아웃 상태로 표시하고 사용자 세션은 유지
+            if (this.isEmailVerificationPending) {
+              console.log('이메일 인증 대기 중 - 사용자 세션 유지, UI만 로그아웃 상태로 표시');
+              this.updateUIForAuthState(false);
+              return; // 로그아웃하지 않고 리턴
+            }
+            
+            // ✅ 이메일 인증 대기 상태가 아닌 경우에만 로그아웃
+            console.log('이메일 인증 대기 상태가 아니므로 자동 로그아웃');
+            await firebase.signOut(auth);
+            return;
+          }
+
+          // ✅ 이메일 인증이 완료된 경우
+          console.log('이메일 인증 완료 - 프로필 표시');
+          this.isEmailVerificationPending = false;
+          await this.showUserProfile();
+          
+        } catch (error) {
+          console.error('Auth 상태 변경 처리 중 오류:', error);
+        }
+      } else {
+        // ✅ 로그아웃 상태
+        console.log('로그아웃 상태');
+        
+        // 이메일 인증 대기 상태가 아닌 경우에만 상태 초기화
+        if (!this.isEmailVerificationPending) {
+          this.updateUIForAuthState(false);
+        }
+      }
+    });
+  }
+
+  setupEventListeners() {
+    this.setupModalEventListeners();
+    this.setupFormEventListeners();
+    window.AuthConfig.UIHelper.setupProfileImagePreview();
+  }
+
+  setupModalEventListeners() {
+    // 로그인 모달
+    this.eventManager.addListener(
+      document.getElementById('loginBtn'),
+      'click',
+      () => window.AuthConfig.Utils.showModal('loginModal')
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('closeLoginModal'),
+      'click',
+      () => window.AuthConfig.Utils.closeModal('loginModal')
+    );
+
+    // 회원가입 모달
+    this.eventManager.addListener(
+      document.getElementById('openSignupLink'),
+      'click',
+      (e) => {
+        e.preventDefault();
+        window.AuthConfig.Utils.closeModal('loginModal');
+        window.AuthConfig.Utils.showModal('signupModal');
+      }
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('closeSignupModal'),
+      'click',
+      () => {
+        window.AuthConfig.Utils.closeModal('signupModal');
+        this.cleanup(); // ✅ 회원가입 모달 닫을 때 정리
+      }
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('backToLoginLink'),
+      'click',
+      (e) => {
+        e.preventDefault();
+        window.AuthConfig.Utils.closeModal('signupModal');
+        window.AuthConfig.Utils.showModal('loginModal');
+        this.cleanup(); // ✅ 로그인으로 돌아갈 때 정리
+      }
+    );
+
+    // 프로필 모달
+    this.eventManager.addListener(
+      document.getElementById('openProfileModalBtn'),
+      'click',
+      () => this.handleOpenProfileModal()
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('closeProfileModal'),
+      'click',
+      () => this.handleCloseProfileModal()
+    );
+
+    // 비밀번호 재설정 모달
+    this.eventManager.addListener(
+      document.getElementById('openPasswordResetLink'),
+      'click',
+      (e) => {
+        e.preventDefault();
+        window.AuthConfig.Utils.closeModal('loginModal');
+        window.AuthConfig.Utils.showModal('passwordResetModal');
+      }
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('closePasswordResetModal'),
+      'click',
+      () => window.AuthConfig.Utils.closeModal('passwordResetModal')
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('backToLoginFromReset'),
+      'click',
+      (e) => {
+        e.preventDefault();
+        window.AuthConfig.Utils.closeModal('passwordResetModal');
+        window.AuthConfig.Utils.showModal('loginModal');
+        window.AuthConfig.Utils.clearForm('passwordResetForm');
+      }
+    );
+
+    // 모달 외부 클릭 시 닫기
+    window.addEventListener('click', (e) => {
+      const modals = ['loginModal', 'signupModal', 'profileModal', 'passwordResetModal'];
+      modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (e.target === modal) {
+          window.AuthConfig.Utils.closeModal(modalId);
+          if (modalId === 'profileModal' || modalId === 'signupModal') {
+            this.cleanup(); // ✅ 모달 외부 클릭시에도 정리
+          }
+        }
+      });
+    });
+  }
+
+  setupFormEventListeners() {
+    // 로그인 폼
+    this.eventManager.addListener(
+      document.getElementById('doLogin'),
+      'click',
+      () => this.handleLogin()
+    );
+
+    // 회원가입 폼
+    this.eventManager.addListener(
+      document.getElementById('signupSaveProfileBtn'),
+      'click',
+      () => this.handleSaveProfile()
+    );
+
+    this.eventManager.addListener(
+      document.getElementById('checkVerificationBtn'),
+      'click',
+      () => this.handleCompleteSignup()
+    );
+
+    // 비밀번호 재설정
+    this.eventManager.addListener(
+      document.getElementById('sendResetEmailBtn'),
+      'click',
+      () => this.handleSendPasswordReset()
+    );
+
+    // 닉네임 변경
+    this.eventManager.addListener(
+      document.getElementById('saveNicknameBtn'),
+      'click',
+      () => this.handleSaveNickname()
+    );
+
+    // 로그아웃
+    this.eventManager.addListener(
+      document.getElementById('logoutBtn'),
+      'click',
+      () => this.handleLogout()
+    );
+
+    // Enter 키 이벤트
+    this.setupEnterKeyEvents();
+  }
+
+  setupEnterKeyEvents() {
+    const inputs = [
+      { id: 'loginPassword', handler: () => this.handleLogin() },
+      { id: 'resetEmail', handler: () => this.handleSendPasswordReset() }
+    ];
+
+    inputs.forEach(({ id, handler }) => {
+      const input = document.getElementById(id);
+      if (input) {
+        this.eventManager.addListener(input, 'keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handler();
+          }
+        });
+      }
+    });
+  }
+
+  handleOpenProfileModal() {
+    this.signupEmail = document.getElementById('signupEmail')?.value.trim() || '';
+    this.signupPassword = document.getElementById('signupPassword')?.value.trim() || '';
+
+    if (!this.signupEmail || !this.signupPassword) {
+      alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_PASSWORD_REQUIRED);
+      return;
+    }
+
+    window.AuthConfig.Utils.closeModal('signupModal');
+    this.showProfileModal();
+  }
+
+  handleCloseProfileModal() {
+    window.AuthConfig.Utils.closeModal('profileModal');
+    this.cleanup();
+  }
+
+  showProfileModal() {
+    window.AuthConfig.Utils.closeAllModals();
+    window.AuthConfig.Utils.showModal('profileModal');
+    
+    const nicknameInput = document.getElementById('nickname');
+    if (nicknameInput) nicknameInput.value = '';
+    
+    // ✅ 프로필 모달 UI를 초기 상태로 리셋
+    window.AuthConfig.UIHelper.resetProfileModalUI();
+  }
+
+  /**
+   * ✅ 로그인 처리 - 이메일 인증 체크 강화
+   */
+  async handleLogin() {
+    if (!this.isInitialized) {
+      console.error('AuthManager가 아직 초기화되지 않았습니다.');
+      return;
+    }
+
+    const email = document.getElementById('loginEmail')?.value.trim();
+    const password = document.getElementById('loginPassword')?.value.trim();
+
+    if (!email || !password) {
+      alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_PASSWORD_REQUIRED);
+      return;
+    }
+
+    const loginBtn = document.getElementById('doLogin');
+    const firebase = this.firebaseManager.getFirebase();
+    const auth = this.firebaseManager.getAuth();
+    
+    try {
+      window.AuthConfig.LoadingManager.showLoading(loginBtn, window.AuthConfig.LOADING_MESSAGES.LOGGING_IN);
+      
+      const userCredential = await firebase.signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // ✅ 이메일 인증 확인
+      if (!user.emailVerified) {
+        console.log('로그인 시도했지만 이메일 미인증 상태');
+        alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_VERIFICATION_REQUIRED);
+        
+        // ✅ 이메일 미인증 사용자는 즉시 로그아웃
+        await firebase.signOut(auth);
+        return;
+      }
+
+      console.log('로그인 성공:', user);
+      window.AuthConfig.Utils.closeModal('loginModal');
+      window.AuthConfig.Utils.clearForm('loginForm'); // 폼 초기화
+      
+    } catch (error) {
+      window.AuthConfig.ErrorHandler.logAndNotify(error, '로그인');
+    } finally {
+      window.AuthConfig.LoadingManager.hideLoading(loginBtn);
+    }
+  }
+
+  /**
+   * ✅ 수정된 프로필 저장 및 회원가입 처리 - 이메일 인증 강제
+   */
+  async handleSaveProfile() {
+    if (!this.isInitialized) {
+      console.error('AuthManager가 아직 초기화되지 않았습니다.');
+      return;
+    }
+
+    const nickname = document.getElementById('nickname')?.value.trim();
+    const saveBtn = document.getElementById('signupSaveProfileBtn');
+    
+    if (!nickname) {
+      alert(window.AuthConfig.ERROR_MESSAGES.NICKNAME_REQUIRED);
+      return;
+    }
+    
+    if (!window.AuthConfig.Validator.validateNickname(nickname)) {
+      alert(window.AuthConfig.ERROR_MESSAGES.NICKNAME_LENGTH);
+      return;
+    }
+
+    if (!window.AuthConfig.Validator.isHanilEmail(this.signupEmail)) {
+      alert(window.AuthConfig.ERROR_MESSAGES.INVALID_EMAIL);
+      return;
+    }
+
+    const firebase = this.firebaseManager.getFirebase();
+    const auth = this.firebaseManager.getAuth();
 
     try {
       window.AuthConfig.LoadingManager.showLoading(saveBtn, window.AuthConfig.LOADING_MESSAGES.CREATING_ACCOUNT);
@@ -549,330 +879,4 @@ window.showUserProfile = () => {
   } else {
     console.error('AuthManager가 아직 준비되지 않았습니다.');
   }
-}; = this.firebaseManager.getAuth();
-    
-    if (!firebase || !auth) {
-      console.error('Firebase가 초기화되지 않음');
-      return;
-    }
-
-    firebase.onAuthStateChanged(auth, async (user) => {
-      console.log('Auth 상태 변경:', user ? user.email : 'null');
-
-      if (user) {
-        // 사용자 정보 새로고침
-        await user.reload();
-        const refreshedUser = auth.currentUser;
-
-        // 이메일 인증 확인
-        if (!refreshedUser.emailVerified) {
-          console.log('이메일 미인증 상태 감지');
-          
-          // ✅ 이메일 인증 대기 상태인 경우: UI만 로그아웃 상태로 표시하고 사용자 세션은 유지
-          if (this.isEmailVerificationPending) {
-            console.log('이메일 인증 대기 중 - 사용자 세션 유지, UI만 로그아웃 상태로 표시');
-            this.updateUIForAuthState(false);
-            return; // 로그아웃하지 않고 리턴
-          }
-          
-          // ✅ 이메일 인증 대기 상태가 아닌 경우에만 로그아웃
-          console.log('이메일 인증 대기 상태가 아니므로 자동 로그아웃');
-          await firebase.signOut(auth);
-          return;
-        }
-
-        // ✅ 이메일 인증이 완료된 경우
-        console.log('이메일 인증 완료 - 프로필 표시');
-        this.isEmailVerificationPending = false;
-        await this.showUserProfile();
-        
-      } else {
-        // ✅ 로그아웃 상태
-        console.log('로그아웃 상태');
-        
-        // 이메일 인증 대기 상태가 아닌 경우에만 상태 초기화
-        if (!this.isEmailVerificationPending) {
-          this.updateUIForAuthState(false);
-        }
-      }
-    });
-  }
-
-  setupEventListeners() {
-    this.setupModalEventListeners();
-    this.setupFormEventListeners();
-    window.AuthConfig.UIHelper.setupProfileImagePreview();
-  }
-
-  setupModalEventListeners() {
-    // 로그인 모달
-    this.eventManager.addListener(
-      document.getElementById('loginBtn'),
-      'click',
-      () => window.AuthConfig.Utils.showModal('loginModal')
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('closeLoginModal'),
-      'click',
-      () => window.AuthConfig.Utils.closeModal('loginModal')
-    );
-
-    // 회원가입 모달
-    this.eventManager.addListener(
-      document.getElementById('openSignupLink'),
-      'click',
-      (e) => {
-        e.preventDefault();
-        window.AuthConfig.Utils.closeModal('loginModal');
-        window.AuthConfig.Utils.showModal('signupModal');
-      }
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('closeSignupModal'),
-      'click',
-      () => {
-        window.AuthConfig.Utils.closeModal('signupModal');
-        this.cleanup(); // ✅ 회원가입 모달 닫을 때 정리
-      }
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('backToLoginLink'),
-      'click',
-      (e) => {
-        e.preventDefault();
-        window.AuthConfig.Utils.closeModal('signupModal');
-        window.AuthConfig.Utils.showModal('loginModal');
-        this.cleanup(); // ✅ 로그인으로 돌아갈 때 정리
-      }
-    );
-
-    // 프로필 모달
-    this.eventManager.addListener(
-      document.getElementById('openProfileModalBtn'),
-      'click',
-      () => this.handleOpenProfileModal()
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('closeProfileModal'),
-      'click',
-      () => this.handleCloseProfileModal()
-    );
-
-    // 비밀번호 재설정 모달
-    this.eventManager.addListener(
-      document.getElementById('openPasswordResetLink'),
-      'click',
-      (e) => {
-        e.preventDefault();
-        window.AuthConfig.Utils.closeModal('loginModal');
-        window.AuthConfig.Utils.showModal('passwordResetModal');
-      }
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('closePasswordResetModal'),
-      'click',
-      () => window.AuthConfig.Utils.closeModal('passwordResetModal')
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('backToLoginFromReset'),
-      'click',
-      (e) => {
-        e.preventDefault();
-        window.AuthConfig.Utils.closeModal('passwordResetModal');
-        window.AuthConfig.Utils.showModal('loginModal');
-        window.AuthConfig.Utils.clearForm('passwordResetForm');
-      }
-    );
-
-    // 모달 외부 클릭 시 닫기
-    window.addEventListener('click', (e) => {
-      const modals = ['loginModal', 'signupModal', 'profileModal', 'passwordResetModal'];
-      modals.forEach(modalId => {
-        const modal = document.getElementById(modalId);
-        if (e.target === modal) {
-          window.AuthConfig.Utils.closeModal(modalId);
-          if (modalId === 'profileModal' || modalId === 'signupModal') {
-            this.cleanup(); // ✅ 모달 외부 클릭시에도 정리
-          }
-        }
-      });
-    });
-  }
-
-  setupFormEventListeners() {
-    // 로그인 폼
-    this.eventManager.addListener(
-      document.getElementById('doLogin'),
-      'click',
-      () => this.handleLogin()
-    );
-
-    // 회원가입 폼
-    this.eventManager.addListener(
-      document.getElementById('signupSaveProfileBtn'),
-      'click',
-      () => this.handleSaveProfile()
-    );
-
-    this.eventManager.addListener(
-      document.getElementById('checkVerificationBtn'),
-      'click',
-      () => this.handleCompleteSignup()
-    );
-
-    // 비밀번호 재설정
-    this.eventManager.addListener(
-      document.getElementById('sendResetEmailBtn'),
-      'click',
-      () => this.handleSendPasswordReset()
-    );
-
-    // 닉네임 변경
-    this.eventManager.addListener(
-      document.getElementById('saveNicknameBtn'),
-      'click',
-      () => this.handleSaveNickname()
-    );
-
-    // 로그아웃
-    this.eventManager.addListener(
-      document.getElementById('logoutBtn'),
-      'click',
-      () => this.handleLogout()
-    );
-
-    // Enter 키 이벤트
-    this.setupEnterKeyEvents();
-  }
-
-  setupEnterKeyEvents() {
-    const inputs = [
-      { id: 'loginPassword', handler: () => this.handleLogin() },
-      { id: 'resetEmail', handler: () => this.handleSendPasswordReset() }
-    ];
-
-    inputs.forEach(({ id, handler }) => {
-      const input = document.getElementById(id);
-      if (input) {
-        this.eventManager.addListener(input, 'keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handler();
-          }
-        });
-      }
-    });
-  }
-
-  handleOpenProfileModal() {
-    this.signupEmail = document.getElementById('signupEmail')?.value.trim() || '';
-    this.signupPassword = document.getElementById('signupPassword')?.value.trim() || '';
-
-    if (!this.signupEmail || !this.signupPassword) {
-      alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_PASSWORD_REQUIRED);
-      return;
-    }
-
-    window.AuthConfig.Utils.closeModal('signupModal');
-    this.showProfileModal();
-  }
-
-  handleCloseProfileModal() {
-    window.AuthConfig.Utils.closeModal('profileModal');
-    this.cleanup();
-  }
-
-  showProfileModal() {
-    window.AuthConfig.Utils.closeAllModals();
-    window.AuthConfig.Utils.showModal('profileModal');
-    
-    const nicknameInput = document.getElementById('nickname');
-    if (nicknameInput) nicknameInput.value = '';
-    
-    // ✅ 프로필 모달 UI를 초기 상태로 리셋
-    window.AuthConfig.UIHelper.resetProfileModalUI();
-  }
-
-  /**
-   * ✅ 로그인 처리 - 이메일 인증 체크 강화
-   */
-  async handleLogin() {
-    if (!this.isInitialized) {
-      console.error('AuthManager가 아직 초기화되지 않았습니다.');
-      return;
-    }
-
-    const email = document.getElementById('loginEmail')?.value.trim();
-    const password = document.getElementById('loginPassword')?.value.trim();
-
-    if (!email || !password) {
-      alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_PASSWORD_REQUIRED);
-      return;
-    }
-
-    const loginBtn = document.getElementById('doLogin');
-    const firebase = this.firebaseManager.getFirebase();
-    const auth = this.firebaseManager.getAuth();
-    
-    try {
-      window.AuthConfig.LoadingManager.showLoading(loginBtn, window.AuthConfig.LOADING_MESSAGES.LOGGING_IN);
-      
-      const userCredential = await firebase.signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // ✅ 이메일 인증 확인
-      if (!user.emailVerified) {
-        console.log('로그인 시도했지만 이메일 미인증 상태');
-        alert(window.AuthConfig.ERROR_MESSAGES.EMAIL_VERIFICATION_REQUIRED);
-        
-        // ✅ 이메일 미인증 사용자는 즉시 로그아웃
-        await firebase.signOut(auth);
-        return;
-      }
-
-      console.log('로그인 성공:', user);
-      window.AuthConfig.Utils.closeModal('loginModal');
-      window.AuthConfig.Utils.clearForm('loginForm'); // 폼 초기화
-      
-    } catch (error) {
-      window.AuthConfig.ErrorHandler.logAndNotify(error, '로그인');
-    } finally {
-      window.AuthConfig.LoadingManager.hideLoading(loginBtn);
-    }
-  }
-
-  /**
-   * ✅ 수정된 프로필 저장 및 회원가입 처리 - 이메일 인증 강제
-   */
-  async handleSaveProfile() {
-    if (!this.isInitialized) {
-      console.error('AuthManager가 아직 초기화되지 않았습니다.');
-      return;
-    }
-
-    const nickname = document.getElementById('nickname')?.value.trim();
-    const saveBtn = document.getElementById('signupSaveProfileBtn');
-    
-    if (!nickname) {
-      alert(window.AuthConfig.ERROR_MESSAGES.NICKNAME_REQUIRED);
-      return;
-    }
-    
-    if (!window.AuthConfig.Validator.validateNickname(nickname)) {
-      alert(window.AuthConfig.ERROR_MESSAGES.NICKNAME_LENGTH);
-      return;
-    }
-
-    if (!window.AuthConfig.Validator.isHanilEmail(this.signupEmail)) {
-      alert(window.AuthConfig.ERROR_MESSAGES.INVALID_EMAIL);
-      return;
-    }
-
-    const firebase = this.firebaseManager.getFirebase();
-    const auth
+};
